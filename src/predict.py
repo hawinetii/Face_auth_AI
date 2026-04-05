@@ -10,29 +10,36 @@ with open("models/face_model.pkl", "rb") as f:
 
 def predict(frame, distance_threshold=0.6):
     """
-    Predicts the identity from a given frame.
-
-    Args:
-        frame: BGR image from webcam or video.
-        distance_threshold: Max KNN distance to accept a match.
-
-    Returns:
-        str: "Granted: <label>" if matched, else "Denied"
+    Predict identity from webcam frame
     """
-    # Convert to grayscale and resize
-    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-    face = cv2.resize(gray, (64, 64))
 
-    # Flatten and scale
-    face_flat = face.flatten().reshape(1, -1)
-    face_scaled = scaler.transform(face_flat)
+    # Safety check
+    if frame is None:
+        return "❌ No image captured"
 
-    # Predict label
-    pred = model.predict(face_scaled)[0]
+    try:
+        # Convert to grayscale
+        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
-    # Check nearest neighbor distance
-    dist, _ = model.kneighbors(face_scaled)
+        # Resize
+        face = cv2.resize(gray, (64, 64))
 
-    if dist[0][0] > distance_threshold:
-        return "Denied"
-    return f"Granted: {pred}"
+        # Flatten + scale
+        face_flat = face.flatten().reshape(1, -1)
+        face_scaled = scaler.transform(face_flat)
+
+        # Predict
+        pred = model.predict(face_scaled)[0]
+
+        # Distance (confidence)
+        dist, _ = model.kneighbors(face_scaled)
+        confidence = dist[0][0]
+
+        # Decision
+        if confidence > distance_threshold:
+            return "❌ Access Denied"
+        else:
+            return f"✅ Access Granted: {pred}"
+
+    except Exception as e:
+        return f"⚠️ Error: {str(e)}"
