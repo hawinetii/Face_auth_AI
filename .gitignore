@@ -1,0 +1,23 @@
+venv/
+__pycache__/
+*.pyc
+data/
+models/
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environment
+venv/
+env/
+.venv/
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
+
+# IDE / editor settings (optional)
+.vscode/
+.idea/
