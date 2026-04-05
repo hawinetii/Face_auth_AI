@@ -31,7 +31,7 @@ def load_dataset():
 
     return np.array(X), np.array(y)
 import numpy as np
-from preprocessing import preprocess_images
+from .preprocessing import preprocess_images
 
 def create_dataset():
 

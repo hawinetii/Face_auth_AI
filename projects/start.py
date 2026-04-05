@@ -1,60 +1,72 @@
-import streamlit as st
 import os
-from PIL import Image
+import streamlit as st
+import numpy as np
+import cv2
 
-st.title("Face Recognition System")
+from src.train import train_model
+from src.predict import predict_face
 
-menu = ["Register", "Login"]
-choice = st.sidebar.selectbox("Menu", menu)
+st.set_page_config(page_title="Face Auth AI", layout="centered")
+st.title("📸 Face Recognition System")
+
+choice = st.sidebar.selectbox("Menu", ["Register", "Login"])
 
 DATA_PATH = "data"
+os.makedirs(DATA_PATH, exist_ok=True)
 
-# Create data folder if not exists
-if not os.path.exists(DATA_PATH):
-    os.makedirs(DATA_PATH)
-
-# ---------------- REGISTER PAGE ----------------
+# ---------------- REGISTER ----------------
 if choice == "Register":
-    st.header("Register User")
+    st.header("Register New User")
+    name = st.text_input("Enter Name")
 
-    name = st.text_input("Enter your name")
+    if "caps" not in st.session_state:
+        st.session_state.caps = []
 
-    img_file = st.camera_input("Capture your face")
+    img_file = st.camera_input("Capture Face")
 
-    if img_file is not None:
-        st.image(img_file)
+    if img_file:
+        st.session_state.caps.append(img_file)
+        st.write(f"📸 Photos captured: {len(st.session_state.caps)}")
 
-        if st.button("Save"):
-            if name == "":
-                st.warning("Please enter a name")
-            else:
-                user_folder = os.path.join(DATA_PATH, name)
+    for i, img in enumerate(st.session_state.caps):
+        st.image(img, caption=f"Image {i+1}", width=200)
 
-                if not os.path.exists(user_folder):
-                    os.makedirs(user_folder)
+    if st.button("Clear Photos"):
+        st.session_state.caps = []
 
-                file_path = os.path.join(user_folder, "image.jpg")
+    if st.button("Save & Train"):
+        if name and len(st.session_state.caps) >= 5:
+            user_dir = os.path.join(DATA_PATH, name)
+            os.makedirs(user_dir, exist_ok=True)
 
-                with open(file_path, "wb") as f:
-                    f.write(img_file.getbuffer())
+            for i, f in enumerate(st.session_state.caps):
+                with open(os.path.join(user_dir, f"img_{i}.jpg"), "wb") as img_out:
+                    img_out.write(f.getbuffer())
 
-                st.success(f"{name} registered successfully!")
+            st.info("🤖 Training model...")
+            train_model()
 
-# ---------------- LOGIN PAGE ----------------
+            st.success(f"✅ {name} registered successfully!")
+            st.session_state.caps = []
+
+        else:
+            st.warning("⚠️ Enter name and capture at least 5 images")
+
+# ---------------- LOGIN ----------------
 elif choice == "Login":
-    st.header("Login")
+    st.header("Face Login")
 
-    img_file = st.camera_input("Capture your face")
+    img_file = st.camera_input("Look at the camera")
 
-    if img_file is not None:
-        st.image(img_file)
+    if img_file and st.button("Login"):
+        file_bytes = np.asarray(bytearray(img_file.read()), dtype=np.uint8)
+        opencv_img = cv2.imdecode(file_bytes, 1)
 
-        if st.button("Login"):
-            # Placeholder logic
-            users = os.listdir(DATA_PATH)
+        result = predict_face(opencv_img)
 
-            if len(users) == 0:
-                st.error("No users registered")
-            else:
-                st.success("Face detected!")
-                st.info("Matching logic will be added here")
+        if result == "Unknown":
+            st.error("❌ Access Denied")
+        elif "Error" in result or result == "No face detected":
+            st.warning(result)
+        else:
+            st.success(f"✅ Welcome, {result}!")

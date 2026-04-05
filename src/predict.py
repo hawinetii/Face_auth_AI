@@ -1,45 +1,49 @@
-import pickle
 import cv2
+import pickle
 import numpy as np
+import os
 
-# Load model and scaler
-with open("models/face_model.pkl", "rb") as f:
-    data = pickle.load(f)
-    model = data["model"]
-    scaler = data["scaler"]
+MODEL_PATH = "models/face_model.pkl"
 
-def predict(frame, distance_threshold=0.6):
-    """
-    Predict identity from webcam frame
-    """
-
-    # Safety check
-    if frame is None:
-        return "❌ No image captured"
-
+def predict_face(image_input):
     try:
+        # Load model
+        if not os.path.exists(MODEL_PATH):
+            return "Error: Model not found. Train first."
+
+        with open(MODEL_PATH, "rb") as f:
+            data = pickle.load(f)
+
+        model = data["model"]
+        scaler = data["scaler"]
+
+        # ---------------- HANDLE IMAGE ----------------
+        # 🔥 ONLY load with imread IF it's a string path
+        if isinstance(image_input, str):
+            img = cv2.imread(image_input)
+        else:
+            img = image_input  # already an image (numpy array)
+
+        # Safety check
+        if img is None:
+            return "Error: Invalid image input"
+
         # Convert to grayscale
-        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        if len(img.shape) == 3:
+            img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 
         # Resize
-        face = cv2.resize(gray, (64, 64))
+        img = cv2.resize(img, (64, 64))
 
         # Flatten + scale
-        face_flat = face.flatten().reshape(1, -1)
-        face_scaled = scaler.transform(face_flat)
+        img = img.flatten().reshape(1, -1)
+        img = scaler.transform(img)
 
         # Predict
-        pred = model.predict(face_scaled)[0]
+        prediction = model.predict(img)
 
-        # Distance (confidence)
-        dist, _ = model.kneighbors(face_scaled)
-        confidence = dist[0][0]
-
-        # Decision
-        if confidence > distance_threshold:
-            return "❌ Access Denied"
-        else:
-            return f"✅ Access Granted: {pred}"
+        return prediction[0]
 
     except Exception as e:
-        return f"⚠️ Error: {str(e)}"
+        return f"Error: {str(e)}"
+    print(type(image_input))
